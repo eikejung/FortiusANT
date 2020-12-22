@@ -1,7 +1,9 @@
 #-------------------------------------------------------------------------------
 # Version info
 #-------------------------------------------------------------------------------
-__version__ = "2020-12-10"
+__version__ = "2020-12-16"
+# 2020-12-14    ANT+ Control command implemented
+#               Runoff procedure improved
 # 2020-12-10    GradeShift/GradeFactor are multipliers
 #               antDeviceID specified on command-line
 # 2020-12-08    GradeAdjust is split into GradeShift/GradeFactor
@@ -196,6 +198,7 @@ import antFE             as fe
 import antHRM            as hrm
 import antPWR            as pwr
 import antSCS            as scs
+import antCTRL           as ctrl
 import debug
 from   FortiusAntGui                import mode_Power, mode_Grade
 import logfile
@@ -304,9 +307,27 @@ def LocateHW(self):
 # ------------------------------------------------------------------------------
 # input:        devTrainer
 #
+#               clv.RunoffMaxSpeed  = 30  km/hr
+#               clv.RunoffDip       = 2   km/hr
+#               clv.RunoffMinSpeed  = 1   km/hr
+#               clv.RunoffTime      = 7   seconds
+#               clv.RunoffPower     = 100 Watt
+#
 # Description:  run trainer untill 40km/h reached then untill stopped.
 #               Initially, target power is 100Watt, which may be influenced
 #               with the up/down buttons on the headunit of the trainer.
+#
+#               Note, that there is no ANT+ loop active here!
+#               - ANT+ Controller cannot be used here
+#
+#               The runoff process is:
+#               - Warm-up for two minutes
+#               - Increase speed until 30 km/hr is met
+#               - Stop pedalling and let wheel rundown
+#               - The time from stop pedalling -> wheel stopped is measured
+#                   That time is aimed to be 7.2 seconds
+#
+# Thanks:       antifier, cycleflow
 #
 # Output:       none
 #
@@ -318,9 +339,14 @@ def Runoff(self):
         logfile.Console('Runoff not implemented for Simulated trainer or Tacx i-Vortex')
         return False
 
-    TacxTrainer.SetPower(100)
+    #---------------------------------------------------------------------------
+    # Initialize
+    #---------------------------------------------------------------------------
+    TacxTrainer.SetPower(clv.RunoffPower)
     rolldown        = False
     rolldown_time   = 0
+    ShortMessage    = TacxTrainer.Message + " | Runoff - "
+    ShortMessage    = "Tacx Trainer Runoff - "
 
     #---------------------------------------------------------------------------
     # Pedal stroke Analysis
@@ -332,13 +358,6 @@ def Runoff(self):
     PowerCount      = 0
     PowerEqual      = 0
 
-    #self.InstructionsVariable.set('''
-    #CALIBRATION TIPS: 
-    #1. Tyre pressure 100psi (unloaded and cold) aim for 7.2s rolloff
-    #2. Warm up for 2 mins, then cycle 30kph-40kph for 30s 
-    #3. SpeedKmh up to above 40kph then stop pedaling and freewheel
-    #4. Rolldown timer will start automatically when you hit 40kph, so stop pedaling quickly!
-    #''')
     if clv.PedalStrokeAnalysis:
         CycleTime = CycleTimeFast   # Quick poll to get more info
         if debug.on(debug.Any):
@@ -365,30 +384,38 @@ def Runoff(self):
                             TacxTrainer.TargetPower,      TacxTrainer.TargetGrade, \
                             TacxTrainer.TargetResistance, TacxTrainer.HeartRate, \
                             0)
-            if not rolldown or rolldown_time == 0:
-                self.SetMessages(Tacx=TacxTrainer.Message + " - Cycle to above 40kph (then stop)")
-            else:
-                self.SetMessages(Tacx=TacxTrainer.Message + \
-                                    " - Rolldown timer %s - STOP pedaling!" % \
-                                    ( round((time.time() - rolldown_time),1) ) \
-                                )
-          
             #---------------------------------------------------------------------
-            # SpeedKmh up to 40 km/h and then rolldown
+            # SpeedKmh up to 40 km/h and then let wheel rolldown
             #---------------------------------------------------------------------
-            if TacxTrainer.SpeedKmh > 40:      # SpeedKmh above 40, start rolldown
-                rolldown = True
-        
-            if rolldown and TacxTrainer.SpeedKmh <=40 and rolldown_time == 0:
-                # rolldown timer starts when dips below 40
-                rolldown_time = time.time()
+            if not rolldown:
+                self.SetMessages(Tacx=ShortMessage + "Warm-up for some minutes, then cycle to above {}km/hr" \
+                                                    .format(clv.RunoffMaxSpeed))
           
-            if rolldown and TacxTrainer.SpeedKmh < 0.1 :    # wheel stopped
-                self.RunningSwitch = False                  # break loop
-                self.SetMessages(Tacx=TacxTrainer.Message + \
-                                    " - Rolldown time = %s seconds (aim 7s)" % \
-                                    round((time.time() - rolldown_time),1) \
-                                )
+                if TacxTrainer.SpeedKmh > clv.RunoffMaxSpeed:      # SpeedKmh above 40, start rolldown
+                    self.SetMessages(Tacx=ShortMessage + "STOP PEDALLING")                
+                    rolldown = True
+
+            #---------------------------------------------------------------------
+            # Measure time from MaxSpeed-Dip --> MinSpeed
+            #---------------------------------------------------------------------
+            else:        
+                if TacxTrainer.SpeedKmh <= clv.RunoffMaxSpeed - clv.RunoffDip:
+                    # rolldown timer starts when dips below 38
+                    if rolldown_time == 0:
+                        rolldown_time = time.time()
+                    self.SetMessages(Tacx=ShortMessage + \
+                                        "KEEP STILL, Rolldown timer %s seconds" % \
+                                        ( round((time.time() - rolldown_time),1) ) \
+                                    )
+          
+                if TacxTrainer.SpeedKmh < clv.RunoffMinSpeed :  # wheel almost stopped
+                    self.SetMessages(Tacx=ShortMessage + \
+                                        "Rolldown time = %s seconds (aim %s s)" % \
+                                        (round((time.time() - rolldown_time),1), clv.RunoffTime) \
+                                    )
+
+                if TacxTrainer.SpeedKmh < 0.1 :                 # wheel stopped
+                    self.RunningSwitch = False                  # break loop
 
         #-------------------------------------------------------------------------
         # #48 Frequency of data capture - sufficient for pedal stroke analysis?
@@ -454,7 +481,7 @@ def Runoff(self):
     #---------------------------------------------------------------------------
     # Finalize
     #---------------------------------------------------------------------------
-    self.SetValues( 0, 0, 0,TacxTrainer.TargetMode, 0, 0, 0, 0, 0)
+    self.SetValues( 0, 0, 0, TacxTrainer.TargetMode, 0, 0, 0, 0, 0 )
     if not rolldown:
         self.SetMessages(Tacx=TacxTrainer.Message)
     if debug.on(debug.Any) and PowerCount > 0:
@@ -511,6 +538,19 @@ def Tacx2DongleSub(self, Restart):
     p71_Data2                   = 0xff
     p71_Data3                   = 0xff
     p71_Data4                   = 0xff
+
+    #---------------------------------------------------------------------------
+    # Command status data for ANT Control
+    #---------------------------------------------------------------------------
+    ctrl_p71_LastReceivedCommandID   = 255
+    ctrl_p71_SequenceNr              = 255
+    ctrl_p71_CommandStatus           = 255
+    ctrl_p71_Data1                   = 0xff
+    ctrl_p71_Data2                   = 0xff
+    ctrl_p71_Data3                   = 0xff
+    ctrl_p71_Data4                   = 0xff
+
+    ctrl_Commands = []  # Containing tuples (manufacturer, serial, CommandNr)
 
     #---------------------------------------------------------------------------
     # Info from ANT slave channels
@@ -596,7 +636,13 @@ def Tacx2DongleSub(self, Restart):
         #-------------------------------------------------------------------
         AntDongle.SlaveSCS_ChannelConfig(clv.scs)
         pass
-    
+
+    if True:
+        #-------------------------------------------------------------------
+        # Create ANT+ master channel for ANT Control
+        #-------------------------------------------------------------------
+        AntDongle.CTRL_ChannelConfig(ant.DeviceNumber_CTRL)
+
     if not clv.gui: logfile.Console ("Ctrl-C to exit")
 
     #---------------------------------------------------------------------------
@@ -606,6 +652,10 @@ def Tacx2DongleSub(self, Restart):
 
     #---------------------------------------------------------------------------
     # Calibrate trainer
+    #
+    # Note, that there is no ANT+ loop active here!
+    # - Calibration is currently implemented for Tacx Fortius (matorbrake) only.
+    # - ANT+ Controller cannot be used here
     #---------------------------------------------------------------------------
     CountDown       = 120 * 4 # 8 minutes; 120 is the max on the cadence meter
     ResistanceArray = numpy.array([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]) # Array for calculating running average
@@ -726,6 +776,7 @@ def Tacx2DongleSub(self, Restart):
     hrm.Initialize()
     pwr.Initialize()
     scs.Initialize()
+    ctrl.Initialize()
     
     #---------------------------------------------------------------------------
     # Initialize CycleTime: fast for PedalStrokeAnalysis
@@ -817,6 +868,39 @@ def Tacx2DongleSub(self, Restart):
                 LastPedalEcho = TacxTrainer.PedalEcho                   # until next signal
 
             #-------------------------------------------------------------------
+            # Handle Control command
+            #-------------------------------------------------------------------
+            if len(ctrl_Commands):
+                ctrl_SlaveManufacturerID, ctrl_SlaveSerialNumber, ctrl_CommandNr = ctrl_Commands[0]
+
+                #-------------------------------------------------------------------
+                # The ANT+controller gives head-unit commands.
+                #       This is the default behaviour when no serial numbers defined
+                #-------------------------------------------------------------------
+                if clv.CTRL_SerialL == 0:
+                    if   ctrl_CommandNr == ctrl.MenuUp:     TacxTrainer.Buttons = usbTrainer.UpButton
+                    elif ctrl_CommandNr == ctrl.MenuDown:   TacxTrainer.Buttons = usbTrainer.DownButton
+                    elif ctrl_CommandNr == ctrl.MenuSelect: TacxTrainer.Buttons = usbTrainer.OKButton
+                    ctrl_CommandNr = ctrl.NoAction
+
+                #-------------------------------------------------------------------
+                # A left ANT+controller may be defined, with it's own behaviour
+                #-------------------------------------------------------------------
+                elif ctrl_SlaveSerialNumber == clv.CTRL_SerialL:
+                    pass
+
+                #-------------------------------------------------------------------
+                # A right ANT+controller may be defined, with it's own behaviour
+                #-------------------------------------------------------------------
+                elif ctrl_SlaveSerialNumber == clv.CTRL_SerialR:
+                    pass
+
+                #-------------------------------------------------------------------
+                # Remove command
+                #-------------------------------------------------------------------
+                ctrl_Commands.pop(0)
+
+            #-------------------------------------------------------------------
             # In manual-mode, power can be incremented or decremented
             # In all modes, operation can be stopped.
             #
@@ -876,6 +960,12 @@ def Tacx2DongleSub(self, Restart):
                     messages.append(scs.BroadcastMessage( \
                         TacxTrainer.PedalEchoTime, TacxTrainer.PedalEchoCount, \
                         TacxTrainer.VirtualSpeedKmh, TacxTrainer.Cadence))
+
+                #---------------------------------------------------------------
+                # Broadcast Controllable message
+                #---------------------------------------------------------------
+                if True:
+                    messages.append(ctrl.BroadcastControlMessage())
 
                 #---------------------------------------------------------------
                 # Broadcast TrainerData message to the CTP (Trainer Road, ...)
@@ -1092,6 +1182,64 @@ def Tacx2DongleSub(self, Restart):
                         # Other data pages
                         #-------------------------------------------------------
                         else: error = "Unknown FE data page"
+
+                    #-----------------------------------------------------------
+                    # Control Channel inputs
+                    #-----------------------------------------------------------
+                    if Channel == ant.channel_CTRL:
+                        #-------------------------------------------------------
+                        # Data page 73 (0x53) Generic Command
+                        #-------------------------------------------------------
+                        if   DataPageNumber == 73:
+                            ctrl_SlaveSerialNumber, ctrl_SlaveManufacturerID, SequenceNr, ctrl_CommandNr =\
+                                ant.msgUnpage73_GenericCommand(info)
+
+                            ctrl_p71_LastReceivedCommandID = DataPageNumber
+                            ctrl_p71_SequenceNr = SequenceNr
+                            ctrl_p71_CommandStatus = 0
+                            ctrl_p71_Data1 =  ctrl_CommandNr & 0x00ff
+                            ctrl_p71_Data2 = (ctrl_CommandNr & 0xff00) >> 8
+                            ctrl_p71_Data3 = 0xFF
+                            ctrl_p71_Data4 = 0xFF
+
+                            #---------------------------------------------------
+                            # Commands should not overwrite, therefore stored
+                            # in a table as tuples.
+                            #---------------------------------------------------
+                            ctrl_Commands.append((ctrl_SlaveManufacturerID, ctrl_SlaveSerialNumber, ctrl_CommandNr))
+                            CommandName = ctrl.CommandName.get(ctrl_CommandNr, 'Unknown')
+                            if debug.on(debug.Application):
+                                logfile.Print(f"ANT+ Control {ctrl_SlaveManufacturerID} {ctrl_SlaveSerialNumber}: Received command {ctrl_CommandNr} = {CommandName} ")
+
+                        # -------------------------------------------------------
+                        # Data page 70 Request data page
+                        # -------------------------------------------------------
+                        elif DataPageNumber == 70:
+                            _SlaveSerialNumber, _DescriptorByte1, _DescriptorByte2, \
+                            _AckRequired, NrTimes, RequestedPageNumber, \
+                            _CommandType = ant.msgUnpage70_RequestDataPage(info)
+
+                            info = False
+                            if RequestedPageNumber == 71:
+                                info = ant.msgPage71_CommandStatus(ant.channel_CTRL, ctrl_p71_LastReceivedCommandID,
+                                                                   ctrl_p71_SequenceNr, ctrl_p71_CommandStatus,
+                                                                   ctrl_p71_Data1, ctrl_p71_Data2, ctrl_p71_Data3,
+                                                                   ctrl_p71_Data4)
+                            else:
+                                error = "Requested page not suported"
+
+                            if info != False:
+                                data = []
+                                d    = ant.ComposeMessage (ant.msgID_BroadcastData, info)
+                                while (NrTimes):
+                                    data.append(d)
+                                    NrTimes -= 1
+                                AntDongle.Write(data, False)
+
+                        #-------------------------------------------------------
+                        # Other data pages
+                        #-------------------------------------------------------
+                        else: error = "Unknown Control data page"
 
                     #-----------------------------------------------------------
                     # Unknown channel
