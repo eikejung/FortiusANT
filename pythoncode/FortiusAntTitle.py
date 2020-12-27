@@ -1,7 +1,9 @@
 #-------------------------------------------------------------------------------
 # Version info
 #-------------------------------------------------------------------------------
-WindowTitle = "Fortius Antifier v4.1.b #121 #147"    # Double quotes, see below!
+WindowTitle = "Fortius Antifier v4.1.1"              # Double quotes, see below!
+# 2020-12-20    Version 4.1.1   #137 Improvements for Raspberry PI
+# 2020-12-20    Version 4.1.c   #103 Implement Bluetooth support
 # 2020-12-15    Version 4.1.b   #147 Improve run-off procedure
 #                               #164 Ignore headunit buttons
 # 2020-12-14    Version 4.1.a   #121 Implementation of ANT+ Remote control
