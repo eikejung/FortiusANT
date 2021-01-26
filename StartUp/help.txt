@@ -1,7 +1,14 @@
+<<<<<<< HEAD
 usage: FortiusAnt.py [-h] [-a] [-A] [-b] [-c CALIBRATERR] [-d DEBUG]
                      [-D ANTDEVICEID] [-g] [-G GRADEADJUST] [-H HRM] [-m] [-M]
                      [-n] [-p FACTOR] [-P] [-r] [-R RUNOFF] [-s]
                      [-T TRANSMISSION] [-t] [-x]
+=======
+usage: FortiusAntCommand.py [-h] [-a] [-A] [-c CALIBRATERR] [-d DEBUG]
+                            [-D ANTDEVICEID] [-g] [-G GRADEADJUST] [-H HRM]
+                            [-m] [-M] [-n] [-p FACTOR] [-P] [-r] [-s]
+                            [-t TACXTYPE] [-x]
+>>>>>>> parent of 90114f1... v5.1 Merge branch master into 4.2-Quality-upgrade
 
 Program to broadcast data from USB Tacx Fortius trainer, and to receive
 resistance data for the trainer
@@ -11,9 +18,13 @@ optional arguments:
   -a, --autostart       Automatically start; “Locate HW” and “Start” if the
                         required devices were found.
   -A, --PedalStrokeAnalysis
+<<<<<<< HEAD
                         Pedal Stroke Analysis.
   -b, --ble             Advertise FortiusAnt as “FortiusAnt Trainer” on a
                         Bluetooth Low Energy dongle.
+=======
+                        Pedal Stroke Analysis
+>>>>>>> parent of 90114f1... v5.1 Merge branch master into 4.2-Quality-upgrade
   -c CALIBRATERR, --CalibrateRR CALIBRATERR
                         Calibrate the rolling resistance for magnetic brake.
   -d DEBUG, --debug DEBUG
@@ -36,6 +47,7 @@ optional arguments:
   -P, --PowerMode       Power mode has preference over Resistance mode (for 30
                         seconds).
   -r, --Resistance      Target Resistance = Target Power (to create power
+<<<<<<< HEAD
                         curve).
   -R RUNOFF, --Runoff RUNOFF
                         The runoff procedure can be customized:
@@ -49,3 +61,10 @@ optional arguments:
                         Bushido, Genius, Vortex, Magneticbrake, Motorbrake
   -x, --exportTCX       Export TCX file to upload into Strava, Sporttracks,
                         Training peaks.
+=======
+                        curve)
+  -s, --simulate        Simulated trainer to test ANT+ connectivity
+  -t TACXTYPE, --TacxType TACXTYPE
+                        Specify Tacx Type; e.g. i-Vortex, default=autodetect
+  -x, --exportTCX       Export TCX file
+>>>>>>> parent of 90114f1... v5.1 Merge branch master into 4.2-Quality-upgrade

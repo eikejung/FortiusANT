@@ -1,6 +1,7 @@
 #-------------------------------------------------------------------------------
 # Version info
 #-------------------------------------------------------------------------------
+<<<<<<< HEAD
 __version__ = "2021-01-19"
 # 2021-01-19    PowerFactor limit changed to 0.5 ... 1.5
 # 2021-01-18    help texts defined as 'constants' to be used for commandline.
@@ -12,6 +13,9 @@ __version__ = "2021-01-19"
 # 2020-12-30    added: trainer types "Vortex", "Bushido" and "Genius" (-t option)
 #               "i-Vortex" is deprecated
 #               fix typo in power factor error message
+=======
+__version__ = "2020-12-18"
+>>>>>>> parent of 90114f1... v5.1 Merge branch master into 4.2-Quality-upgrade
 # 2020-12-18    added: -b for Bluetooth support
 #               used:  UseBluetooth and UseGui
 # 2020-12-15    added: -R for Runoff procedure
@@ -98,6 +102,7 @@ class CommandLineVariables(object):
     PowerFactor     = 1.00
     SimulateTrainer = False
     TacxType        = False
+<<<<<<< HEAD
     Tacx_Vortex     = False
     Tacx_Genius     = False
     Tacx_Bushido    = False
@@ -113,6 +118,9 @@ class CommandLineVariables(object):
     Cassette       = []
     CassetteStart  = 0          # The initial value of index
     CassetteMax    = 0          # Corresponds to full WH of the drawing area
+=======
+    Tacx_iVortex    = False
+>>>>>>> parent of 90114f1... v5.1 Merge branch master into 4.2-Quality-upgrade
 
     #---------------------------------------------------------------------------
     # Runoff, as defined by @cyclingflow
@@ -156,6 +164,7 @@ class CommandLineVariables(object):
         parser.add_argument   ('-d','--debug',              help=constants.help_d,  required=False, default=False)
         parser.add_argument   ('-D','--antDeviceID',        help=constants.help_D,  required=False, default=False)
         if UseGui:
+<<<<<<< HEAD
            parser.add_argument('-g','--gui',                help=constants.help_g,  required=False, action='store_true')
         parser.add_argument   ('-G','--GradeAdjust',        help=constants.help_G,  required=False, default=False)
         parser.add_argument   ('-H','--hrm',                help=constants.help_H,  required=False, default=False)
@@ -184,6 +193,32 @@ class CommandLineVariables(object):
         #-----------------------------------------------------------------------
         self.args                   = parser.parse_args()
         settings.ReadJsonFile(self.args)
+=======
+           parser.add_argument('-g','--gui',       help='Run with graphical user interface',                   required=False, action='store_true')
+        parser.add_argument   ('-G','--GradeAdjust',help='Adjust slope%% in GradeMode (factor/factorDownhill)',required=False, default=False)
+        parser.add_argument   ('-H','--hrm',       help='Pair this ANT+ Heart Rate Monitor (0: any, -1: none); Tacx HRM is used if not specified',
+                                                                                                            required=False, default=False)
+        parser.add_argument   ('-m','--manual',    help='Run manual power (ignore target from ANT+ Dongle)',   required=False, action='store_true')
+        parser.add_argument   ('-M','--manualGrade',help='Run manual grade (ignore target from ANT+ Dongle)',  required=False, action='store_true')
+        parser.add_argument   ('-n','--calibrate', help='Do not calibrate before start',                       required=False, action='store_false')
+        parser.add_argument   ('-p','--factor',    help='Adjust target Power by multiplying by this factor for static calibration',
+                                                                                                            required=False, default=False)
+        parser.add_argument   ('-P','--PowerMode', help='Power mode has preference over Resistance mode (for 30 seconds)',
+                                                                                                            required=False, action='store_true')
+        parser.add_argument   ('-r','--Resistance',help='Target Resistance = Target Power (to create power curve)',
+                                                                                                            required=False, action='store_true')
+        parser.add_argument   ('-R','--Runoff',    help='maxSpeed/dip/minSpeed/targetTime/power',              required=False, default=False)
+        parser.add_argument   ('-s','--simulate',  help='Simulated trainer to test ANT+ connectivity',         required=False, action='store_true')
+#scs    parser.add_argument   ('-S','--scs',       help='Pair this Speed Cadence Sensor (0: default device)',  required=False, default=False)
+        parser.add_argument   ('-t','--TacxType',  help='Specify Tacx Type; e.g. i-Vortex, default=autodetect',required=False, default=False)
+        parser.add_argument   ('-x','--exportTCX', help='Export TCX file',                                     required=False, action='store_true')
+
+        #-----------------------------------------------------------------------
+        # Parse
+        #-----------------------------------------------------------------------
+        args                        = parser.parse_args()
+        self.args                   = args
+>>>>>>> parent of 90114f1... v5.1 Merge branch master into 4.2-Quality-upgrade
 
         #-----------------------------------------------------------------------
         # Booleans; either True or False
@@ -288,7 +323,11 @@ class CommandLineVariables(object):
             try:
                 self.PowerFactor = max(0.5, min(1.5, int(self.args.factor)/100 ))
             except:
+<<<<<<< HEAD
                 logfile.Console('Command line error; -p incorrect power factor=%s' % self.args.factor)
+=======
+                logfile.Console('Command line error; -f incorrect power factor=%s' % args.factor)
+>>>>>>> parent of 90114f1... v5.1 Merge branch master into 4.2-Quality-upgrade
 
         #-----------------------------------------------------------------------
         # Get GradeAdjust = shift/factor
@@ -335,11 +374,16 @@ class CommandLineVariables(object):
                 if len(s) >= 5 and s[4]: self.RunoffPower    = max( 0, min(500, int  ( s[4] ) )) # Watt
                 assert(self.RunoffMinSpeed <= self.RunoffMaxSpeed - self.RunoffDip * 2 )
             except:
+<<<<<<< HEAD
                 logfile.Console('Command line error; -R incorrect Runoff definition %s' % self.args.Runoff)
+=======
+                logfile.Console('Command line error; -R incorrect Runoff definition %s' % args.Runoff)                
+>>>>>>> parent of 90114f1... v5.1 Merge branch master into 4.2-Quality-upgrade
 
         #-----------------------------------------------------------------------
         # Get TacxType
         #-----------------------------------------------------------------------
+<<<<<<< HEAD
         if self.args.TacxType:
             self.TacxType = self.args.TacxType
             if 'Vortex' in self.TacxType:
@@ -352,6 +396,12 @@ class CommandLineVariables(object):
                 self.Tacx_Magneticbrake = True
             elif 'Motorbrake' in self.TacxType:
                 self.Tacx_MotorBrake = True
+=======
+        if args.TacxType:
+            self.TacxType = args.TacxType
+            if self.TacxType in ('i-Vortex'):
+                self.Tacx_iVortex = True
+>>>>>>> parent of 90114f1... v5.1 Merge branch master into 4.2-Quality-upgrade
             else:
                 logfile.Console('Command line error; -t incorrect value=%s' % self.args.TacxType)
                 self.args.TacxType = False
@@ -423,8 +473,12 @@ class CommandLineVariables(object):
         #-----------------------------------------------------------------------
         # Check pedal stroke analysis
         #-----------------------------------------------------------------------
+<<<<<<< HEAD
         if self.args.PedalStrokeAnalysis and (not self.args.gui or self.Tacx_Vortex or
                                          self.Tacx_Genius or self.Tacx_Bushido):
+=======
+        if args.PedalStrokeAnalysis and (not args.gui or self.Tacx_iVortex):
+>>>>>>> parent of 90114f1... v5.1 Merge branch master into 4.2-Quality-upgrade
             logfile.Console("Pedal stroke analysis is not possible in console mode or this Tacx type")
             self.PedalStrokeAnalysis = False
 
@@ -519,8 +573,12 @@ if __name__ == "__main__":
         print("----hrm none")
     else:
         i = int(clv.hrm)
+<<<<<<< HEAD
         print(i)
 
     if UseGui:
         app = wx.App(0)
         settings.OpenDialog(app, None, clv)
+=======
+        print(i)
+>>>>>>> parent of 90114f1... v5.1 Merge branch master into 4.2-Quality-upgrade
